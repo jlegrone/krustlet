@@ -408,6 +408,7 @@ fn digest_header_value(response: &reqwest::Response) -> anyhow::Result<String> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use rstest::*;
     use std::convert::TryFrom;
 
     const HELLO_IMAGE_NO_TAG: &str = "webassembly.azurecr.io/hello-wasm";
@@ -424,33 +425,48 @@ mod test {
         HELLO_IMAGE_TAG_AND_DIGEST,
     ];
 
-    #[test]
-    fn test_to_v2_blob_url() {
-        let image = Reference::try_from(HELLO_IMAGE_TAG).expect("failed to parse reference");
-        let blob_url = Client::default().to_v2_blob_url(
-            image.registry(),
-            image.repository(),
-            "sha256:deadbeef",
-        );
-        assert_eq!(
-            blob_url,
+    #[rstest(
+        image,
+        expected,
+        case::normal(
+            HELLO_IMAGE_TAG,
             "https://webassembly.azurecr.io/v2/hello-wasm/blobs/sha256:deadbeef"
         )
+    )]
+    fn to_v2_blob_url(image: &str, expected: &str) {
+        let reference = Reference::try_from(image).expect("failed to parse reference");
+        let blob_url = Client::default().to_v2_blob_url(
+            reference.registry(),
+            reference.repository(),
+            "sha256:deadbeef",
+        );
+        assert_eq!(blob_url, expected)
     }
 
-    #[test]
-    fn test_to_v2_manifest() {
-        let c = Client::default();
-
-        for &(image, expected_uri) in [
-            (HELLO_IMAGE_NO_TAG, "https://webassembly.azurecr.io/v2/hello-wasm/manifests/latest"), // TODO: confirm this is the right translation when no tag
-            (HELLO_IMAGE_TAG, "https://webassembly.azurecr.io/v2/hello-wasm/manifests/v1"),
-            (HELLO_IMAGE_DIGEST, "https://webassembly.azurecr.io/v2/hello-wasm/manifests/sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7"),
-            (HELLO_IMAGE_TAG_AND_DIGEST, "https://webassembly.azurecr.io/v2/hello-wasm/manifests/sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7"),
-            ].iter() {
-                let reference = Reference::try_from(image).expect("failed to parse reference");
-                assert_eq!(c.to_v2_manifest_url(&reference), expected_uri);
-        }
+    #[rstest(
+        image, expected,
+        case::no_tag(
+            HELLO_IMAGE_NO_TAG,
+            // TODO: confirm this is the right translation when no tag
+            "https://webassembly.azurecr.io/v2/hello-wasm/manifests/latest"
+        ),
+        case::tag(
+            HELLO_IMAGE_TAG,
+            "https://webassembly.azurecr.io/v2/hello-wasm/manifests/v1",
+        ),
+        case::digest(
+            HELLO_IMAGE_DIGEST,
+            "https://webassembly.azurecr.io/v2/hello-wasm/manifests/sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7",
+        ),
+        case::tag_and_digest(
+            HELLO_IMAGE_TAG_AND_DIGEST,
+            "https://webassembly.azurecr.io/v2/hello-wasm/manifests/sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7",
+        ),
+        ::trace
+    )]
+    fn to_v2_manifest(image: &str, expected: &str) {
+        let reference = Reference::try_from(image).expect("failed to parse reference");
+        assert_eq!(Client::default().to_v2_manifest_url(&reference), expected);
     }
 
     #[tokio::test]
