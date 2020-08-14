@@ -157,17 +157,17 @@ mod test {
     }
 
     impl ParseResult {
-        fn new<'a>(registry: &str, repository: &str, tag: Option<&str>, digest: Option<&str>) -> Self {
+        fn new<'a>(registry: &str, repository: &str) -> Self {
             Self{
                 registry: registry.to_owned(), 
                 repository: repository.to_owned(), 
-                tag: tag.map(|t| t.to_owned()), 
-                digest: digest.map(|d| d.to_owned()), 
+                tag: None, 
+                digest: None, 
             }
         }
 
         fn empty() -> Self {
-            Self::new("", "", None, None)
+            Self::new("", "")
         }
 
         fn with_tag(&mut self, tag: &str) -> Self {
@@ -181,36 +181,32 @@ mod test {
         }
     }
 
-    impl Default for ParseResult {
-        fn default() -> Self { Self::new("webassembly.azurecr.io", "hello", None, None) }
-    }
-
     #[rstest(
         image, expected,
         case::owned_string(
             "webassembly.azurecr.io/hello:v1".to_owned(),
-            ParseResult::default()
+            ParseResult::new("webassembly.azurecr.io", "hello")
                 .with_tag("v1"),
         ),
         case::tag(
             "webassembly.azurecr.io/hello:v1",
-            ParseResult::default()
+            ParseResult::new("webassembly.azurecr.io", "hello")
                 .with_tag("v1"),
         ),
         case::digest(
             "webassembly.azurecr.io/hello@sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7",
-            ParseResult::default()
+            ParseResult::new("webassembly.azurecr.io", "hello")
                 .with_digest("sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7"),
         ),
         case::tag_and_digest(
             "webassembly.azurecr.io/hello:v1@sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7",
-            ParseResult::default()
+            ParseResult::new("webassembly.azurecr.io", "hello")
                 .with_tag("v1")
                 .with_digest("sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7"),
         ),
         case::no_tag_or_digest(
             "webassembly.azurecr.io/hello",
-            ParseResult::default(),
+            ParseResult::new("webassembly.azurecr.io", "hello"),
         ),
         #[should_panic(expected = "parsing failed: Failed to parse reference string \'webassembly.azurecr.io:hello\'. Expected at least one slash (/)")]
         case::missing_slash(
