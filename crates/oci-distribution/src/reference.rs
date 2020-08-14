@@ -146,7 +146,13 @@ impl Into<String> for Reference {
 mod test {
     use super::*;
     use rstest::*;
-    use std::convert::{TryFrom, TryInto};
+    use std::convert::TryInto;
+
+    #[derive(Clone, Hash, PartialEq, Eq)]
+    pub struct ParseResult {
+        registry: String,
+        repository: String,
+    }
 
     #[rstest(
         image, expected,
@@ -160,7 +166,7 @@ mod test {
         ),
         case::digest(
             "webassembly.azurecr.io/hello@sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7",
-            ("webassembly.azurecr.io", "hello", Some("v1"), Some("sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7")),
+            ("webassembly.azurecr.io", "hello", None, Some("sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7")),
         ),
         case::tag_and_digest(
             "webassembly.azurecr.io/hello:v1@sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7",
@@ -170,24 +176,26 @@ mod test {
             "webassembly.azurecr.io/hello",
             ("webassembly.azurecr.io", "hello", None, None),
         ),
-        // case::tag(
-        //     HELLO_IMAGE_TAG,
-        //     "https://webassembly.azurecr.io/v2/hello-wasm/manifests/v1",
-        // ),
-        // case::digest(
-        //     HELLO_IMAGE_DIGEST,
-        //     "https://webassembly.azurecr.io/v2/hello-wasm/manifests/sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7",
-        // ),
-        // case::tag_and_digest(
-        //     HELLO_IMAGE_TAG_AND_DIGEST,
-        //     "https://webassembly.azurecr.io/v2/hello-wasm/manifests/sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7",
-        // ),
+        #[should_panic(expected = "parsing failed: Failed to parse reference string \'webassembly.azurecr.io:hello\'. Expected at least one slash (/)")]
+        case::missing_slash(
+            "webassembly.azurecr.io:hello",
+            ("", "", None, None),
+        ),
+        case::trailing_semicolon(
+            "webassembly.azurecr.io/hello:",
+            ("", "", None, None),
+        ),
+        #[should_panic(expected = "parsing failed: Failed to parse reference string \'\'. Expected at least one slash (/)")]
+        case::empty(
+            "",
+            ("", "", None, None),
+        ),
         ::trace
     )]
-    fn parse<T>(image: T, registry: &str, repository: &str, tag: Option<&str>, digest: Option<&str>) 
+    fn parse<T>(image: T, expected: (&str, &str, Option<&str>, Option<&str>)) 
     where T: TryInto<Reference>,
           T::Error: Into<anyhow::Error> {
-        let r: Reference = image.try_into().map_err(Into::into).expect("failed to parse reference");
+        let r: Reference = image.try_into().map_err(Into::into).expect("parsing failed");
         let (registry, repository, tag, digest) = expected;
 
         assert_eq!(r.registry(), registry);
@@ -195,80 +203,4 @@ mod test {
         assert_eq!(r.tag(), tag);
         assert_eq!(r.digest(), digest);
     }
-
-    // mod parse {
-    //     use super::*;
-
-    //     fn must_parse(image: &str) -> Reference {
-    //         Reference::try_from(image).expect("could not parse reference")
-    //     }
-
-    //     fn validate_registry_and_repository(reference: &Reference) {
-    //         assert_eq!(reference.registry(), "webassembly.azurecr.io");
-    //         assert_eq!(reference.repository(), "hello");
-    //     }
-
-    //     fn validate_tag(reference: &Reference) {
-    //         assert_eq!(reference.tag(), Some("v1"));
-    //     }
-
-    //     fn validate_digest(reference: &Reference) {
-    //         assert_eq!(
-    //             reference.digest(),
-    //             Some("sha256:f29dba55022eec8c0ce1cbfaaed45f2352ab3fbbb1cdcd5ea30ca3513deb70c9")
-    //         );
-    //     }
-
-    //     #[test]
-    //     fn owned_string() {
-    //         let reference = Reference::try_from("webassembly.azurecr.io/hello:v1".to_owned())
-    //             .expect("could not parse reference");
-
-    //         validate_registry_and_repository(&reference);
-    //         validate_tag(&reference);
-    //         assert_eq!(reference.digest(), None);
-    //     }
-
-    //     #[test]
-    //     fn tag_only() {
-    //         let reference = must_parse("webassembly.azurecr.io/hello:v1");
-
-    //         validate_registry_and_repository(&reference);
-    //         validate_tag(&reference);
-    //         assert_eq!(reference.digest(), None);
-    //     }
-
-    //     #[test]
-    //     fn digest_only() {
-    //         let reference = must_parse("webassembly.azurecr.io/hello@sha256:f29dba55022eec8c0ce1cbfaaed45f2352ab3fbbb1cdcd5ea30ca3513deb70c9");
-
-    //         validate_registry_and_repository(&reference);
-    //         validate_digest(&reference);
-    //         assert_eq!(reference.tag(), None);
-    //     }
-
-    //     #[test]
-    //     fn tag_and_digest() {
-    //         let reference = must_parse("webassembly.azurecr.io/hello:v1@sha256:f29dba55022eec8c0ce1cbfaaed45f2352ab3fbbb1cdcd5ea30ca3513deb70c9");
-
-    //         validate_registry_and_repository(&reference);
-    //         validate_tag(&reference);
-    //         validate_digest(&reference);
-    //     }
-
-    //     #[test]
-    //     fn no_tag_or_digest() {
-    //         let reference = must_parse("webassembly.azurecr.io/hello");
-
-    //         validate_registry_and_repository(&reference);
-    //         assert_eq!(reference.tag(), None);
-    //         assert_eq!(reference.digest(), None);
-    //     }
-
-    //     #[test]
-    //     fn missing_slash_char() {
-    //         Reference::try_from("webassembly.azurecr.io:hello")
-    //             .expect_err("no slash should produce an error");
-    //     }
-    // }
 }
