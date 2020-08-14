@@ -166,6 +166,10 @@ mod test {
             }
         }
 
+        fn empty() -> Self {
+            Self::new("", "", None, None)
+        }
+
         fn with_tag(&mut self, tag: &str) -> Self {
             self.tag = Some(tag.to_owned());
             self.to_owned()
@@ -185,11 +189,13 @@ mod test {
         image, expected,
         case::owned_string(
             "webassembly.azurecr.io/hello:v1".to_owned(),
-            ParseResult::default().with_tag("v1"),
+            ParseResult::default()
+                .with_tag("v1"),
         ),
         case::tag(
             "webassembly.azurecr.io/hello:v1",
-            ParseResult::default().with_tag("v1"),
+            ParseResult::default()
+                .with_tag("v1"),
         ),
         case::digest(
             "webassembly.azurecr.io/hello@sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7",
@@ -209,16 +215,16 @@ mod test {
         #[should_panic(expected = "parsing failed: Failed to parse reference string \'webassembly.azurecr.io:hello\'. Expected at least one slash (/)")]
         case::missing_slash(
             "webassembly.azurecr.io:hello",
-            ParseResult::new("", "", None, None),
+            ParseResult::empty(),
         ),
         case::trailing_semicolon(
             "webassembly.azurecr.io/hello:",
-            ParseResult::new("", "", None, None),
+            ParseResult::empty(),
         ),
         #[should_panic(expected = "parsing failed: Failed to parse reference string \'\'. Expected at least one slash (/)")]
         case::empty(
             "",
-            ParseResult::new("", "", None, None),
+            ParseResult::empty(),
         ),
         ::trace
     )]
