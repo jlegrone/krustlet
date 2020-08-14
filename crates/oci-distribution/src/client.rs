@@ -409,6 +409,7 @@ fn digest_header_value(response: &reqwest::Response) -> anyhow::Result<String> {
 mod test {
     use super::*;
     use rstest::*;
+    use rstest_reuse::{self, *};
     use std::convert::TryFrom;
 
     const HELLO_IMAGE_NO_TAG: &str = "webassembly.azurecr.io/hello-wasm";
@@ -424,6 +425,25 @@ mod test {
         HELLO_IMAGE_DIGEST,
         HELLO_IMAGE_TAG_AND_DIGEST,
     ];
+
+    #[template]
+    #[rstest(image,
+        case::no_tag(HELLO_IMAGE_NO_TAG),
+        case::tag(HELLO_IMAGE_TAG),
+        case::digest(HELLO_IMAGE_DIGEST),
+        case::tag_and_digest(HELLO_IMAGE_TAG_AND_DIGEST),
+        #[should_panic(expected = "could not parse reference: Failed to parse reference string ''. Expected at least one slash (/)")]
+        case::empty(""),
+        ::trace
+    )]
+    fn image_references(a: &str) {}
+
+    #[apply(image_references)]
+    fn parse(image: &str) {
+        let reference = Reference::try_from(image).expect("could not parse reference");
+        assert_eq!(reference.registry(), "webassembly.azurecr.io");
+        assert_eq!(reference.repository(), "hello-wasm");
+    }
 
     #[rstest(
         image,

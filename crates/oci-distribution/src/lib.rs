@@ -1,5 +1,6 @@
 //! An OCI Distribution client for fetching oci images from an OCI compliant remote store
-#![deny(missing_docs)]
+#[cfg(test)]
+use rstest_reuse;
 
 pub mod client;
 pub mod errors;

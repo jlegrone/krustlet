@@ -41,3 +41,4 @@ log = "0.4"
 
 [dev-dependencies]
 rstest = "0.6"
+rstest_reuse = "0.1"
