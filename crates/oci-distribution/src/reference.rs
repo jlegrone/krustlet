@@ -148,59 +148,90 @@ mod test {
     use rstest::*;
     use std::convert::TryInto;
 
-    #[derive(Clone, Hash, PartialEq, Eq)]
+    #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct ParseResult {
         registry: String,
         repository: String,
+        tag: Option<String>,
+        digest: Option<String>,
+    }
+
+    impl ParseResult {
+        fn new<'a>(registry: &str, repository: &str, tag: Option<&str>, digest: Option<&str>) -> Self {
+            Self{
+                registry: registry.to_owned(), 
+                repository: repository.to_owned(), 
+                tag: tag.map(|t| t.to_owned()), 
+                digest: digest.map(|d| d.to_owned()), 
+            }
+        }
+
+        fn with_tag(&mut self, tag: &str) -> Self {
+            self.tag = Some(tag.to_owned());
+            self.to_owned()
+        }
+
+        fn with_digest(&mut self, digest: &str) -> Self {
+            self.digest = Some(digest.to_owned());
+            self.to_owned()
+        }
+    }
+
+    impl Default for ParseResult {
+        fn default() -> Self { Self::new("webassembly.azurecr.io", "hello", None, None) }
     }
 
     #[rstest(
         image, expected,
         case::owned_string(
             "webassembly.azurecr.io/hello:v1".to_owned(),
-            ("webassembly.azurecr.io", "hello", Some("v1"), None),
+            ParseResult::default().with_tag("v1"),
         ),
         case::tag(
             "webassembly.azurecr.io/hello:v1",
-            ("webassembly.azurecr.io", "hello", Some("v1"), None),
+            ParseResult::default().with_tag("v1"),
         ),
         case::digest(
             "webassembly.azurecr.io/hello@sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7",
-            ("webassembly.azurecr.io", "hello", None, Some("sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7")),
+            ParseResult::default()
+                .with_digest("sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7"),
         ),
         case::tag_and_digest(
             "webassembly.azurecr.io/hello:v1@sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7",
-            ("webassembly.azurecr.io", "hello", Some("v1"), Some("sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7")),
+            ParseResult::default()
+                .with_tag("v1")
+                .with_digest("sha256:51d9b231d5129e3ffc267c9d455c49d789bf3167b611a07ab6e4b3304c96b0e7"),
         ),
         case::no_tag_or_digest(
             "webassembly.azurecr.io/hello",
-            ("webassembly.azurecr.io", "hello", None, None),
+            ParseResult::default(),
         ),
         #[should_panic(expected = "parsing failed: Failed to parse reference string \'webassembly.azurecr.io:hello\'. Expected at least one slash (/)")]
         case::missing_slash(
             "webassembly.azurecr.io:hello",
-            ("", "", None, None),
+            ParseResult::new("", "", None, None),
         ),
         case::trailing_semicolon(
             "webassembly.azurecr.io/hello:",
-            ("", "", None, None),
+            ParseResult::new("", "", None, None),
         ),
         #[should_panic(expected = "parsing failed: Failed to parse reference string \'\'. Expected at least one slash (/)")]
         case::empty(
             "",
-            ("", "", None, None),
+            ParseResult::new("", "", None, None),
         ),
         ::trace
     )]
-    fn parse<T>(image: T, expected: (&str, &str, Option<&str>, Option<&str>)) 
+    fn parse<T>(image: T, expected: ParseResult) 
     where T: TryInto<Reference>,
           T::Error: Into<anyhow::Error> {
         let r: Reference = image.try_into().map_err(Into::into).expect("parsing failed");
-        let (registry, repository, tag, digest) = expected;
 
-        assert_eq!(r.registry(), registry);
-        assert_eq!(r.repository(), repository);
-        assert_eq!(r.tag(), tag);
-        assert_eq!(r.digest(), digest);
+        assert_eq!(ParseResult::new(
+            r.registry(),
+            r.repository(),
+            r.tag(),
+            r.digest(),
+        ), expected);
     }
 }
