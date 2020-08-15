@@ -229,11 +229,11 @@ mod test {
           T::Error: Into<anyhow::Error> {
         let r: Reference = image.try_into().map_err(Into::into).expect("parsing failed");
 
-        assert_eq!(ParseResult::new(
-            r.registry(),
-            r.repository(),
-            r.tag(),
-            r.digest(),
-        ), expected);
+        assert_eq!(ParseResult{
+            registry: r.registry().to_owned(),
+            repository: r.repository().to_owned(),
+            tag: r.tag().map(|t| t.to_owned()),
+            digest: r.digest().map(|d| d.to_owned()),
+        }, expected);
     }
 }
