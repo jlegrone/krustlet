@@ -196,7 +196,7 @@ impl Client {
     ///
     /// If the connection has already gone through authentication, this will
     /// use the bearer token. Otherwise, this will attempt an anonymous pull.
-    async fn pull_manifest(&self, image: &Reference) -> anyhow::Result<(OciManifest, String)> {
+    pub async fn pull_manifest(&self, image: &Reference) -> anyhow::Result<(OciManifest, String)> {
         let url = self.to_v2_manifest_url(image);
         debug!("Pulling image manifest from {}", url);
         let request = self.client.get(&url);
@@ -241,7 +241,7 @@ impl Client {
     /// repository and the registry, but it is not used to verify that
     /// the digest is a layer inside of the image. (The manifest is
     /// used for that.)
-    async fn pull_layer<T: AsyncWrite + Unpin>(
+    pub async fn pull_layer<T: AsyncWrite + Unpin>(
         &self,
         image: &Reference,
         digest: &str,
@@ -252,6 +252,29 @@ impl Client {
             .client
             .get(&url)
             .headers(self.auth_headers(image))
+            .send()
+            .await?
+            .bytes_stream();
+
+        while let Some(bytes) = stream.next().await {
+            out.write_all(&bytes?).await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn pull_layer_new<T: AsyncWrite + Unpin>(
+        &self,
+        registry: &str,
+        repository: &str,
+        digest: &str,
+        mut out: T,
+    ) -> anyhow::Result<()> {
+        let url = self.to_v2_blob_url(registry, repository, digest);
+        let mut stream = self
+            .client
+            .get(&url)
+            // .headers(self.auth_headers(image))
             .send()
             .await?
             .bytes_stream();

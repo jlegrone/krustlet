@@ -158,11 +158,11 @@ mod test {
 
     impl ParseResult {
         fn new<'a>(registry: &str, repository: &str) -> Self {
-            Self{
-                registry: registry.to_owned(), 
-                repository: repository.to_owned(), 
-                tag: None, 
-                digest: None, 
+            Self {
+                registry: registry.to_owned(),
+                repository: repository.to_owned(),
+                tag: None,
+                digest: None,
             }
         }
 
@@ -224,16 +224,24 @@ mod test {
         ),
         ::trace
     )]
-    fn parse<T>(image: T, expected: ParseResult) 
-    where T: TryInto<Reference>,
-          T::Error: Into<anyhow::Error> {
-        let r: Reference = image.try_into().map_err(Into::into).expect("parsing failed");
+    fn parse<T>(image: T, expected: ParseResult)
+    where
+        T: TryInto<Reference>,
+        T::Error: Into<anyhow::Error>,
+    {
+        let r: Reference = image
+            .try_into()
+            .map_err(Into::into)
+            .expect("parsing failed");
 
-        assert_eq!(ParseResult{
-            registry: r.registry().to_owned(),
-            repository: r.repository().to_owned(),
-            tag: r.tag().map(|t| t.to_owned()),
-            digest: r.digest().map(|d| d.to_owned()),
-        }, expected);
+        assert_eq!(
+            ParseResult {
+                registry: r.registry().to_owned(),
+                repository: r.repository().to_owned(),
+                tag: r.tag().map(|t| t.to_owned()),
+                digest: r.digest().map(|d| d.to_owned()),
+            },
+            expected
+        );
     }
 }
